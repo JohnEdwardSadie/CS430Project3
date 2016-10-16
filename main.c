@@ -478,12 +478,13 @@ void read_scene(char* filename) {
         //Error checking
         skip_ws(json);
         if(Object != 'c'){
-            lastIndex += sizeof(Scene);
-            if(incrementObject != 3){
-                fprintf(stderr, "ERROR! Non-correct parameters!");
-                exit(1);
-            }
-            incrementObject = 0;
+                if (Object != 'l'){
+                    lastIndex += sizeof(Scene);
+                }
+                 if (Object == 'l'){
+                    lastIndexLight += sizeof(lightScene);
+                }
+
         }
         if(Object == 'c'){
             if(incrementCamera != 2){
