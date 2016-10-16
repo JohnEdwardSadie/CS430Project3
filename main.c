@@ -27,14 +27,23 @@ typedef struct{
 
 }Scene;
 
+typedef struct{
+        char type;
+        double *color;
+        double *position;
+        double radiala2;
+}Light;
+
 int line = 1;
 int cameraOne;
 int incrementObject;
 int lastIndex = 0;
+int lastIndexLight = 0;
 
 Scene r, g, b;
 Scene camera;
 Scene *scene;
+Light *lightScene;
 Scene *PixelBuffer;
 
 
@@ -341,6 +350,7 @@ void read_scene(char* filename) {
         incrementObject += 1;
         Object = 's';
         scene[lastIndex].type = 's';
+
       }
        //String compare of value and plane
     else if (strcmp(value, "plane") == 0) {
@@ -348,10 +358,17 @@ void read_scene(char* filename) {
         Object = 'p';
         scene[lastIndex].type = 'p';
       }
+    else if (strcmp(value, "light") == 0) {
+        incrementObject += 1;
+        Object = 'l';
+        lightScene[lastIndexLight].type = 'l';
+    }
+
     else {
         fprintf(stderr, "Error: Unknown type, \"%s\", on line number %d.\n", value, line);
         exit(1);
       }
+
     skip_ws(json);
     //Keeping track of variables
     //to be incremented
@@ -372,7 +389,7 @@ void read_scene(char* filename) {
             skip_ws(json);
 
              //*populating object array with our json contents*//
-            if ((strcmp(key, "width") == 0) || (strcmp(key, "height") == 0) || (strcmp(key, "radius") == 0)) {
+            if ((strcmp(key, "width") == 0) || (strcmp(key, "height") == 0) || (strcmp(key, "radius") == 0) || (strcmp(key, "radial-a2") == 0)) {
                 double value = next_number(json);
             if(strcmp(key, "width") == 0){
                 camera.width = value;
@@ -384,6 +401,10 @@ void read_scene(char* filename) {
             }
             if((strcmp(key, "radius") == 0)){
                 scene[lastIndex].radius = value;
+                incrementObject += 1;
+            }
+            if((strcmp(key, "radial-a2") == 0)){
+                lightScene[lastIndexLight].radiala2 = value;
                 incrementObject += 1;
             }
         }
@@ -405,20 +426,34 @@ void read_scene(char* filename) {
         */
             else if ((strcmp(key, "color") == 0) || (strcmp(key, "position") == 0) || (strcmp(key, "normal") == 0)) {
                 double* value = next_vector(json);
+
             if((strcmp(key, "color") == 0)){
-                scene[lastIndex].color = malloc(3*sizeof(double));
-                scene[lastIndex].color = value;
-            if(scene[lastIndex].color[0] > 1 || scene[lastIndex].color[3] > 1 || scene[lastIndex].color[2] > 1){
-                fprintf(stderr, "ERROR: Some color value is greater than 1.\n");
-                exit(1);
-            }
+
+                    if(Object == 'l'){
+                        lightScene[lastIndexLight].color = malloc(3*sizeof(double));
+                        lightScene[lastIndexLight].color = value;
+                    }
+
+                    if(Object != 'l'){
+                        scene[lastIndex].color = malloc(3*sizeof(double));
+                        scene[lastIndex].color = value;
+                    }
             //Keep track objects
             incrementObject += 1;
             }
             if((strcmp(key, "position") == 0)){
-                scene[lastIndex].position = malloc(3*sizeof(double));
-                scene[lastIndex].position = value;
-                incrementObject += 1;
+
+                if(Object == 'l'){
+                        lightScene[lastIndexLight].position = malloc(3*sizeof(double));
+                        lightScene[lastIndexLight].position = value;
+                    }
+
+                    if(Object != 'l'){
+                        scene[lastIndex].position = malloc(3*sizeof(double));
+                        scene[lastIndex].position = value;
+                    }
+            //Keep track objects
+            incrementObject += 1;
             }
             if((strcmp(key, "normal") == 0)){
                 scene[lastIndex].normal = malloc(3*sizeof(double));
@@ -495,7 +530,6 @@ void printScene(){
 
 }*/
 
-
 //Customized write function from project 1
 int write(int w, int h, FILE* outputFile){
     int i;
@@ -525,6 +559,7 @@ int main(int argc, char** argv) {
 
     //memory allocation
     scene = malloc(sizeof(Scene)*128);
+    lightScene = malloc(sizeof(Light)*128);
 
     //ascii to integer.
     double N = (double)atoi(argv[1]);

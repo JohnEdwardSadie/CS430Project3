@@ -1,0 +1,7 @@
+# depslib dependency file v1.0
+1476650467 source:c:\users\3ggie\desktop\cs430project3\main.c
+	<stdio.h>
+	<stdlib.h>
+	<string.h>
+	<math.h>
+
