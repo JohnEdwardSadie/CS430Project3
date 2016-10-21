@@ -18,9 +18,10 @@
 //From the JSON file
 typedef struct{
         char type;
-        double *color;
-        double *position;
-        double *normal;
+        double specularColor[3];
+        double diffuseColor[3];
+        double position[3];
+        double normal[3];
         double radius;
         double width, height;
         unsigned char r,g,b;
@@ -29,9 +30,11 @@ typedef struct{
 
 typedef struct{
         char type;
-        double *color;
-        double *position;
+        double color[3];
+        double position[3];
         double radiala2;
+        double radiala1;
+        double radiala0;
 }Light;
 
 int line = 1;
@@ -153,7 +156,7 @@ void rayCast(double N, double M){
                 }
                 if(t > 0 && t < closestT){
                     closestT = t; //setting closest point to t
-                    closestC = scene[index].color; //setting closest c to the color
+                    closestC = scene[index].diffuseColor; //setting closest c to the color
                 }
                 if(closestT > 0 && closestT != 999999){
 
@@ -389,7 +392,12 @@ void read_scene(char* filename) {
             skip_ws(json);
 
              //*populating object array with our json contents*//
-            if ((strcmp(key, "width") == 0) || (strcmp(key, "height") == 0) || (strcmp(key, "radius") == 0) || (strcmp(key, "radial-a2") == 0)) {
+            if ((strcmp(key, "width") == 0) ||
+                (strcmp(key, "height") == 0) ||
+                (strcmp(key, "radius") == 0) ||
+                (strcmp(key, "radial-a2") == 0) ||
+                (strcmp(key, "radial-a1") == 0) ||
+                (strcmp(key, "radial-a0") == 0 )) {
                 double value = next_number(json);
             if(strcmp(key, "width") == 0){
                 camera.width = value;
@@ -404,7 +412,16 @@ void read_scene(char* filename) {
                 incrementObject += 1;
             }
             if((strcmp(key, "radial-a2") == 0)){
+
                 lightScene[lastIndexLight].radiala2 = value;
+                incrementObject += 1;
+            }
+            if((strcmp(key, "radial-a1") == 0)){
+                lightScene[lastIndexLight].radiala1 = value;
+                incrementObject += 1;
+            }
+            if((strcmp(key, "radial-a0") == 0)){
+                lightScene[lastIndexLight].radiala0 = value;
                 incrementObject += 1;
             }
         }
@@ -424,19 +441,22 @@ void read_scene(char* filename) {
             scene.object[index].normal = next_vector(json);
         }
         */
-            else if ((strcmp(key, "color") == 0) || (strcmp(key, "position") == 0) || (strcmp(key, "normal") == 0)) {
+            else if ((strcmp(key, "diffuse_color") == 0) ||
+                     (strcmp(key, "position") == 0) ||
+                     (strcmp(key, "normal") == 0) ||
+                     (strcmp(key, "specular_color") == 0)) {
                 double* value = next_vector(json);
 
-            if((strcmp(key, "color") == 0)){
+            if((strcmp(key, "diffuse_color") == 0)){
 
                     if(Object == 'l'){
-                        lightScene[lastIndexLight].color = malloc(3*sizeof(double));
+
                         lightScene[lastIndexLight].color = value;
                     }
 
                     if(Object != 'l'){
-                        scene[lastIndex].color = malloc(3*sizeof(double));
-                        scene[lastIndex].color = value;
+
+                        scene[lastIndex].diffuseColor = value;
                     }
             //Keep track objects
             incrementObject += 1;
@@ -444,22 +464,34 @@ void read_scene(char* filename) {
             if((strcmp(key, "position") == 0)){
 
                 if(Object == 'l'){
-                        lightScene[lastIndexLight].position = malloc(3*sizeof(double));
+
                         lightScene[lastIndexLight].position = value;
                     }
 
                     if(Object != 'l'){
-                        scene[lastIndex].position = malloc(3*sizeof(double));
+
                         scene[lastIndex].position = value;
                     }
             //Keep track objects
             incrementObject += 1;
             }
             if((strcmp(key, "normal") == 0)){
-                scene[lastIndex].normal = malloc(3*sizeof(double));
+
                 scene[lastIndex].normal = value;
                 incrementObject += 1;
                 }
+            if((strcmp(key, "diffuse_color") == 0)){
+
+                scene[lastIndex].diffuseColor = value;
+                incrementObject += 1;
+            }
+            if((strcmp(key, "specular_color") == 0)){
+
+                scene[lastIndex].specularColor = value;
+                incrementObject += 1;
+            }
+
+
             }
             else{
                 fprintf(stderr, "Error: Unknown property, \"%s\", on line %d.\n",
