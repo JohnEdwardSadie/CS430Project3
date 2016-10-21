@@ -7,6 +7,7 @@
 //John E. Sadie
 //CS430 Computer Graphics
 //Project 3 - Illumination
+//10.20.16
 
 /*
 Description:
@@ -192,7 +193,6 @@ static inline double IlluminateSpecular(int index, double* SpecularColor, Light 
     return SpecularColor[index]*objectlight.color[index]*pow(VR,ns);
 
 }
-
 /*END EQUATION*/
 
 //rayCast function
@@ -215,7 +215,6 @@ double sphereIntersection(double* Ro, double* Rd, double* position, double radiu
 
     return -1;
 }
-
 //planeIntersection function
 //Source: http://www.siggraph.org/education/materials/HyperGraph/raytrace/rayplane_intersection.htm
 double planeIntersection(double* Ro, double* Rd, double* position, double* normal){
@@ -299,10 +298,7 @@ void rayCast(double N, double M){
 
                     VectorSubtraction(lightScene[u].position, NewRo, NewRd);
 
-                    double object_to_light[3] = {0,0,0};
-                    object_to_light[0] = NewRd[0];
-                    object_to_light[1] = NewRd[1];
-                    object_to_light[2] = NewRd[2];
+
 
                     double lightDistance = sqrt(Sqr(NewRo[0]-NewRd[0])+ Sqr(NewRo[1]-NewRd[1])+ Sqr(NewRo[2]-NewRd[2]));
                     closestS.type = NULL;
