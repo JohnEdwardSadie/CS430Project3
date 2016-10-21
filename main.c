@@ -539,7 +539,6 @@ void read_scene(char* filename) {
         }
         if(Object == 'c'){
             if(incrementCamera != 2){
-                fprintf(stderr, "ERROR: Your camera has either too little parameters or too many parameters.\n");
                 exit(1);
             }
         incrementCamera = 0;
