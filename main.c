@@ -18,24 +18,30 @@
 //From the JSON file
 typedef struct{
         char type;
-        double specularColor[3];
         double diffuseColor[3];
+        double specularColor[3];
+        double color[3];
         double position[3];
         double normal[3];
         double radius;
         double width, height;
         unsigned char r,g,b;
 
-}Scene;
+
+} Scene;
 
 typedef struct{
         char type;
         double color[3];
         double position[3];
+        double direction[3];
+        double theta;
         double radiala2;
         double radiala1;
         double radiala0;
-}Light;
+        double angulara0;
+
+} Light;
 
 int line = 1;
 int cameraOne;
@@ -55,37 +61,6 @@ static inline double sqr(double n){
     return n*n;
 }
 
-//sphereIntersection function
-//Source: http://www.siggraph.org/education/materials/HyperGraph/raytrace/rtinter1.htm
-double sphereIntersection(double *Ro, double *Rd, double *position, double radius){
-    double a,b,c;
-    //sphere intersection equation provided by Dr. Palmer
-    a = sqr(Rd[0]) + sqr(Rd[1]) + sqr(Rd[2]);
-    b = 2*(Rd[0]*(Ro[0]-position[0])+ Rd[0]*(Ro[1]-position[1])+Rd[2]*(Ro[2]-position[2]));
-    c = sqr(Ro[0]-position[0]) + sqr(Ro[1]-position[1]) + sqr(Ro[2]-position[2]) - sqr(radius);
-
-    double t0, t1;
-
-    t0 = (-b - sqrt(sqr(b) - 4*(a*c)))/2*a;
-    t1 = (-b + sqrt(sqr(b) - 4*(a*c)))/2*a;
-
-    //discriminant
-    double dis = sqr(b) - 4*(a*c);
-
-    //Checking if the discriminant is 0
-    //If so, there was no intersection
-    if(dis = 0){
-        return -1;
-    }
-    //The intersection is behind the camera
-    //Don't render
-    if(t0 < 0){
-        return t1;
-    }
-    //Render the object
-    return t0;
-
-}
 
 static inline double normalize(double *v){
     //getting the length of the vector
@@ -99,24 +74,47 @@ static inline double normalize(double *v){
 
 }
 
+//rayCast function
+//implements pseudocode provided by Palmer
+double sphereIntersection(double* Ro, double* Rd, double* position, double radius){
+    double a, b, c;
+    normalize(Rd);
+
+    //sphere intersection equation provided by Dr. Palmer
+     a = Sqr(Rd[0])+Sqr(Rd[1])+Sqr(Rd[2]);
+     b = 2*(Rd[0]*(Ro[0]-position[0]) + Rd[1]*(Ro[1]-position[1]) + Rd[2]*(Ro[2]-position[2]));
+     c = (Sqr((Ro[0]-position[0])) + Sqr((Ro[1]-position[1])) + Sqr((Ro[2]-position[2])) - Sqr(radius));
+
+    double t0;
+    t0 = ((-b - sqrt(Sqr(b) - 4.0*c*a))/(2.0*a));
+
+    if(t0 > 0.0){
+        return t0;
+    }
+
+    return -1;
+}
+
 //planeIntersection function
 //Source: http://www.siggraph.org/education/materials/HyperGraph/raytrace/rayplane_intersection.htm
-double planeIntersection(double *Ro, double *Rd, double *position, double *normal){
+double planeIntersection(double* Ro, double* Rd, double* position, double* normal){
     normalize(normal);
+    normalize(Rd);
 
     //The length from camera to plane
     double d = -(normal[0]*position[0] + normal[1]*position[1] + normal[2]*position[2]);
 
     //denominator
     double denominator = (normal[0]*Rd[0] + normal[1]*Rd[1] + normal[2]*Rd[2]);
-    if(denominator == 0)
-        return -1;
+
     //plane intersection equation provided by Dr. Palmer
     //t = -(AX0 + BY0 + CZ0 + D) / (AXd + BYd + CZd)
-    double t = -(normal[0]*Ro[0] + normal[1]*Ro[1] + normal[2]*Ro[2] + d)/(normal[1]*Rd[0] + normal[1]*Rd[1] + normal[2]*Rd[2]);
+    double t = -(normal[0]*Ro[0] + normal[1]*Ro[1] + normal[2]*Ro[2] + d)/(normal[0]*Rd[0] + normal[1]*Rd[1] + normal[2]*Rd[2]);
+
     //else
         return t;
 }
+
 
 //rayCast function
 //implements pseudocode provided by Palmer
@@ -156,7 +154,7 @@ void rayCast(double N, double M){
                 }
                 if(t > 0 && t < closestT){
                     closestT = t; //setting closest point to t
-                    closestC = scene[index].diffuseColor; //setting closest c to the color
+                    closestC = scene[index].color; //setting closest c to the color
                 }
                 if(closestT > 0 && closestT != 999999){
 
@@ -325,6 +323,7 @@ void read_scene(char* filename) {
   while (1) {
     c = fgetc(json);
     if (c == ']') {
+       printf("%d", line);
       fprintf(stderr, "Error: This is the worst scene file EVER.\n");
       fclose(json);
       return;
@@ -335,6 +334,7 @@ void read_scene(char* filename) {
       // Parse the object
     char* key = next_string(json);
     if (strcmp(key, "type") != 0) {
+
         fprintf(stderr, "Error: Expected \"type\" key on line number %d.\n", line);
         exit(1);
       }
@@ -342,7 +342,6 @@ void read_scene(char* filename) {
     expect_c(json, ':');
     skip_ws(json);
     char* value = next_string(json);
-    //Accounting for only one camera
     if (strcmp(value, "camera") == 0) {
         cameraOne += 1;
         Object = 'c';
@@ -361,6 +360,7 @@ void read_scene(char* filename) {
         Object = 'p';
         scene[lastIndex].type = 'p';
       }
+      //String compare of value and light
     else if (strcmp(value, "light") == 0) {
         incrementObject += 1;
         Object = 'l';
@@ -371,10 +371,7 @@ void read_scene(char* filename) {
         fprintf(stderr, "Error: Unknown type, \"%s\", on line number %d.\n", value, line);
         exit(1);
       }
-
     skip_ws(json);
-    //Keeping track of variables
-    //to be incremented
     int incrementCamera = 0;
 	int incrementObject = 0;
     while (1) {
@@ -390,112 +387,135 @@ void read_scene(char* filename) {
             skip_ws(json);
             expect_c(json, ':');
             skip_ws(json);
-
-             //*populating object array with our json contents*//
-            if ((strcmp(key, "width") == 0) ||
-                (strcmp(key, "height") == 0) ||
-                (strcmp(key, "radius") == 0) ||
+            if ((strcmp(key, "width") == 0)     ||
+                (strcmp(key, "height") == 0)    ||
+                (strcmp(key, "radius") == 0)    ||
                 (strcmp(key, "radial-a2") == 0) ||
-                (strcmp(key, "radial-a1") == 0) ||
-                (strcmp(key, "radial-a0") == 0 )) {
+                (strcmp(key, "radial-a1") == 0)   ||
+                (strcmp(key, "radial-a0") == 0)   ||
+                (strcmp(key, "angular-a0") == 0) ||
+                (strcmp(key, "theta") == 0))
+                {
                 double value = next_number(json);
-            if(strcmp(key, "width") == 0){
-                camera.width = value;
-                incrementCamera += 1;
-            }
-            if(strcmp(key, "height") == 0){
-                camera.height = value;
-                incrementCamera += 1;
-            }
-            if((strcmp(key, "radius") == 0)){
-                scene[lastIndex].radius = value;
-                incrementObject += 1;
-            }
-            if((strcmp(key, "radial-a2") == 0)){
+                //*populating object array with our json contents*//
+                if((strcmp(key, "width") == 0)){
+                    camera.width = value;
+                    incrementCamera+=1;
+                }
+                else if((strcmp(key, "height") == 0)){
+                    camera.height = value;
+                    incrementCamera +=1;
+                }
+                else if((strcmp(key, "radius") == 0)){
+                    scene[lastIndex].radius = value;
+                }
+                else if((strcmp(key, "radial-a2") == 0)){
+                    lightScene[lastIndexLight].radiala2 = value;
+                }
+                else if((strcmp(key, "radial-a1") == 0)){
+                    lightScene[lastIndexLight].radiala1 = value;
+                }
+                else if((strcmp(key, "radial-a0") == 0)){
+                    lightScene[lastIndexLight].radiala0 = value;
+                }
+                else if((strcmp(key, "angular-a0") == 0)){
+                    lightScene[lastIndexLight].angulara0 = value;
+                }
+                else if((strcmp(key, "theta") == 0)){
+                    lightScene[lastIndexLight].theta = value;
+                }
 
-                lightScene[lastIndexLight].radiala2 = value;
-                incrementObject += 1;
             }
-            if((strcmp(key, "radial-a1") == 0)){
-                lightScene[lastIndexLight].radiala1 = value;
-                incrementObject += 1;
+            /*
+            //populating object array with our json contents
+            if (strcmp(key, "width") == 0) {
+                scene.width = next_number(json);
+            } else if (strcmp(key, "height") == 0){
+                scene.height = next_number(json);
+            } else if (strcmp(key, "radius") == 0){
+                scene.object[index].radius = next_number(json);
+            } else if ((strcmp(key, "color") == 0)){
+                scene.object[index].color = next_vector(json);
+            } else if (strcmp(key, "position") == 0){
+                scene.object[index].position = next_vector(json);
+            } else if (strcmp(key, "normal") == 0) {
+                scene.object[index].normal = next_vector(json);
             }
-            if((strcmp(key, "radial-a0") == 0)){
-                lightScene[lastIndexLight].radiala0 = value;
-                incrementObject += 1;
-            }
-        }
-        /*
-        //populating object array with our json contents
-        if (strcmp(key, "width") == 0) {
-            scene.width = next_number(json);
-        } else if (strcmp(key, "height") == 0){
-            scene.height = next_number(json);
-        } else if (strcmp(key, "radius") == 0){
-            scene.object[index].radius = next_number(json);
-        } else if ((strcmp(key, "color") == 0)){
-            scene.object[index].color = next_vector(json);
-        } else if (strcmp(key, "position") == 0){
-            scene.object[index].position = next_vector(json);
-        } else if (strcmp(key, "normal") == 0) {
-            scene.object[index].normal = next_vector(json);
-        }
-        */
-            else if ((strcmp(key, "diffuse_color") == 0) ||
+            */
+            else if ((strcmp(key, "color") == 0) ||
                      (strcmp(key, "position") == 0) ||
                      (strcmp(key, "normal") == 0) ||
-                     (strcmp(key, "specular_color") == 0)) {
+                     (strcmp(key, "direction") == 0) ||
+                     (strcmp(key, "specular_color") == 0) ||
+                     (strcmp(key, "diffuse_color") == 0))
+                        {
                 double* value = next_vector(json);
-
-            if((strcmp(key, "diffuse_color") == 0)){
-
-                    if(Object == 'l'){
-
-                        lightScene[lastIndexLight].color = value;
-                    }
-
+                //assigning value of color
+                if((strcmp(key, "color") == 0)){
+                        //set color value of scene
                     if(Object != 'l'){
+                        scene[lastIndex].color[0] = value[0];
+                        scene[lastIndex].color[1] = value[1];
+                        scene[lastIndex].color[2] = value[2];
 
-                        scene[lastIndex].diffuseColor = value;
                     }
-            //Keep track objects
-            incrementObject += 1;
-            }
-            if((strcmp(key, "position") == 0)){
-
-                if(Object == 'l'){
-
-                        lightScene[lastIndexLight].position = value;
+                    //set color value of lightScene
+                    else if(Object == 'l'){
+                        lightScene[lastIndexLight].color[0] = value[0];
+                        lightScene[lastIndexLight].color[1] = value[1];
+                        lightScene[lastIndexLight].color[2] = value[2];
                     }
-
-                    if(Object != 'l'){
-
-                        scene[lastIndex].position = value;
-                    }
-            //Keep track objects
-            incrementObject += 1;
-            }
-            if((strcmp(key, "normal") == 0)){
-
-                scene[lastIndex].normal = value;
-                incrementObject += 1;
                 }
-            if((strcmp(key, "diffuse_color") == 0)){
+                 //assigning value of diffuseColor
+                else if((strcmp(key, "diffuse_color") == 0)){
+                    scene[lastIndex].diffuseColor[0] = value[0];
+                    scene[lastIndex].diffuseColor[1] = value[1];
+                    scene[lastIndex].diffuseColor[2] = value[2];
 
-                scene[lastIndex].diffuseColor = value;
-                incrementObject += 1;
+                }
+                //assigning value of specularColor
+               else if((strcmp(key, "specular_color") == 0)){
+                    scene[lastIndex].specularColor[0] = value[0];
+                    scene[lastIndex].specularColor[1] = value[1];
+                    scene[lastIndex].specularColor[2] = value[2];
+
+                }
+                //assigning value of position
+               else if((strcmp(key, "position") == 0)){
+                    //setting value of positon in scene
+                    if(Object != 'l'){
+                        scene[lastIndex].position[0] = value[0];
+                        scene[lastIndex].position[1] = value[1];
+                        scene[lastIndex].position[2] = value[2];
+
+                    }
+                    //setting value of of position in lightScene
+                   else if(Object == 'l'){
+                        lightScene[lastIndexLight].position[0] = value[0];
+                        lightScene[lastIndexLight].position[1] = value[1];
+                        lightScene[lastIndexLight].position[2] = value[2];
+
+                    }
+                }
+                //assigning value of normal
+               else if((strcmp(key, "normal") == 0)){
+                    scene[lastIndex].normal[0] = value[0];
+                    scene[lastIndex].normal[1] = value[1];
+                    scene[lastIndex].normal[2] = value[2];
+
+                }
+                //assigning value of direction
+               else if((strcmp(key, "direction") == 0)){
+                    lightScene[lastIndexLight].direction[0] = value[0];
+                    lightScene[lastIndexLight].direction[1] = value[1];
+                    lightScene[lastIndexLight].direction[2] = value[2];
+                }
+
             }
-            if((strcmp(key, "specular_color") == 0)){
-
-                scene[lastIndex].specularColor = value;
-                incrementObject += 1;
-            }
-
-
-            }
-            else{
+            else {
                 fprintf(stderr, "Error: Unknown property, \"%s\", on line %d.\n",
                 key, line);
+
             }
             skip_ws(json);
         }
@@ -510,18 +530,17 @@ void read_scene(char* filename) {
         //Error checking
         skip_ws(json);
         if(Object != 'c'){
-                if (Object != 'l'){
-                    lastIndex += sizeof(Scene);
-                }
-                 if (Object == 'l'){
-                    lastIndexLight += sizeof(lightScene);
-                }
-
+            if(Object != 'l'){
+                lastIndex++;
+            }
+            if(Object == 'l'){
+                lastIndexLight++;
+            }
         }
         if(Object == 'c'){
             if(incrementCamera != 2){
-            fprintf(stderr, "ERROR! Non-correct parameters!");
-            exit(1);
+                fprintf(stderr, "ERROR: Your camera has either too little parameters or too many parameters.\n");
+                exit(1);
             }
         incrementCamera = 0;
         }
@@ -547,7 +566,6 @@ I then printed it out to the terminal.
 void printScene(){
     int index = 0;
     while(scene.object[index].color != NULL){
-
     printf("object: %d\n", index);
     printf("type %s\n", scene.object[index].type);
     printf("color: %f %f %f\n", scene.object[index].color[0],scene.object[index].color[1],scene.object[index].color[2]);
@@ -560,8 +578,8 @@ void printScene(){
     }
     index++;
     }
-
 }*/
+
 
 //Customized write function from project 1
 int write(int w, int h, FILE* outputFile){
